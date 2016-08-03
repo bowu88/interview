@@ -1,10 +1,10 @@
 #### 更多学习资料：
 
-* https://github.com/100mango/zen
-* http://objccn.io/
 * http://nshipster.cn
+* http://objccn.io/
 * http://arigrant.com/
 * http://oncenote.com/
+* https://github.com/100mango/zen
 * https://github.com/oa414/objc-zen-book-cn
 * https://github.com/nixzhu/dev-blog
 * https://github.com/robovm/apple-ios-samples （苹果官方 Sample 代码集合）
@@ -14,6 +14,7 @@
 * https://github.com/Aufree/trip-to-iOS （iOS 学习资料整理）
 * http://www.hrchen.com/2013/05/performance-with-instruments/ (iOS 性能优化）
 * https://github.com/huang303513/iOS-Study-Demo
+* https://github.com/seedante/iOS-Note
 
 #### 编码规范
 

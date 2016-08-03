@@ -3,7 +3,7 @@
 OC中类的方法只有实例方法和静态方法两种：
 
 ```objectivec
-@interface Controller : NSObject { NSString *something; }
+@interface Controller : NSObject
 
 + (void)thisIsAStaticMethod; // 静态方法
 
@@ -27,7 +27,7 @@ OC 中的方法只要声明在 @interface里，就可以认为都是公有的。
 @end
 
 // AClass.m
-@interface AClass(private)
+@interface AClass (private)
 
 -(void)privateSayHello;
 
@@ -44,7 +44,17 @@ OC 中的方法只要声明在 @interface里，就可以认为都是公有的。
 }
 ```
 
-使用这种方法时，试图调用`privateSayHello`会引起编译错误。
+使用这种方法时，外部就不能直接调用到 `privateSayHello` 方法。
+
+注意在上面的代码里面，当我们想通过 Category 来进行方法隐藏的时候，我们可以把实现放在主 implementation 里。当我们想扩展别的不能获取到源代码的类，或者想把不同 Category 的实现分开，可以新建 `<ClassName>+CategoryName.m` 文件，在里面进行实现：
+
+```objectivec
+#import "SystemClass+CategoryName.h"
+ 
+@implementation SystemClass ( CategoryName )
+// method definitions
+@end
+```
 
 也可以使用 Extension 来实现私有方法：
 
@@ -71,7 +81,7 @@ OC 中的方法只要声明在 @interface里，就可以认为都是公有的。
 @end
 ```
 
-与使用 Category 类似，由于声明隐藏在 .m 中，调用者无法看到其声明，也就无法调用`privateSayHello`这个方法，在ARC下会引发编译错误。
+与使用 Category 类似，由于声明隐藏在 .m 中，调用者无法看到其声明，也就无法调用 `privateSayHello` 这个方法，在ARC下会引发编译错误。
 
 和使用 Category 相比，使用 Extension 有以下两个好处：
 
@@ -159,7 +169,7 @@ OC 中的方法只要声明在 @interface里，就可以认为都是公有的。
 
 OC是单继承的，OC中的类可以实现多个 protocol 来实现类似 C++ 中多重继承的效果。
 
-Protocol 类似 Java 中的 interface，定义了一个方法列表，这个方法列表中的方法可以使用@required @optional 标注，以表示该方法是否是客户类必须要实现的方法。 一个 protocol 可以继承其他的 protocol 。
+Protocol 类似 Java 中的 interface，定义了一个方法列表，这个方法列表中的方法可以使用 `@required`， `@optional` 标注，以表示该方法是否是客户类必须要实现的方法。 一个 protocol 可以继承其他的 protocol 。
 
 ```objectivec
 @protocol TestProtocol<NSObject> // NSObject也是一个 Protocol，这里即继承 NSObject 里的方法
@@ -173,6 +183,60 @@ Protocol 类似 Java 中的 interface，定义了一个方法列表，这个方�
 ```
 
 Delegate（委托）是 Cocoa 中常见的一种设计模式，其实现依赖于 protocol 这个语言特性。
+
+#### 含有 property 的 Protocol
+
+上面提到过，当 Protocol 中含有 property 时，编译器是不会进行自动 synthesize 的，需要手动处理：
+
+```objectivec
+@class ExampleClass;
+
+@protocol ExampleProtocol
+
+@required
+
+@property (nonatomic, retain) ExampleClass *item;
+
+@end
+```
+
+在实现这个 Protocol 的时候，要么再次声明 property：
+
+```objectivec
+@interface MyObject : NSObject <ExampleProtocol>
+
+@property (nonatomic, retain) ExampleClass *item;
+
+@end
+```
+
+要么进行手动 synthesize：
+
+```objectivec
+@interface MyObject : NSObject <ExampleProtocol>
+@end
+
+@implementation MyObject
+@synthesize item;
+
+@end
+```
+
+工程自带的 `AppDelegate` 使用了前一种方法，`UIApplicationDelegate` protocol 当中定义了 `window` 属性：
+
+```objectivec
+@property (nonatomic, retain) UIWindow *window NS_AVAILABLE_IOS(5_0);
+```
+
+在 `AppDelegate.h` 中我们可以看到这个：
+
+```objectivec
+@interface AppDelegate : UIResponder <UIApplicationDelegate>
+
+@property (nonatomic, strong) UIWindow *window;
+
+@end
+```
 
 ### Category
 
@@ -217,8 +281,8 @@ Category 常见的使用方法如下：
 Extension 可以认为是一种匿名的 Category， Extension 与 Category 有如下几点显著的区别：
 
 1. 使用 Extension 必须有原有类的源码
-2. Extension 可以在类中添加新的属性和实例变量，Category 不可以（注：在 Category 中实际上可以通过运行时添加新的属性，参考[这里](http://nshipster.com/associated-objects/)）
-3. Extension 里添加的方法必须要有实现
+2. Extension 可以在类中添加新的属性和实例变量，Category 不可以（注：在 Category 中实际上可以通过运行时添加新的属性，下面会讲到）
+3. Extension 里添加的方法必须要有实现（没有实现编译器会给出警告）
 
 下面是一个 Extension 的例子：
 
@@ -245,9 +309,9 @@ Extension 可以认为是一种匿名的 Category， Extension 与 Category 有�
 @end 
 ``` 
 
-Extension 很常见的用法，是用来给类添加 **私有** 的变量和方法，用于在类的内部使用。例如在 interface 中定义为 `readonly` 类型的属性，在实现中添加 extension，将其重新定义为 `readwrite`，这样我们在类的内部就可以直接修改它的值，然而外部依然不能调用 `setter` 方法来修改。示例代码如下，来自苹果官方[文档](https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ProgrammingWithObjectiveC/CustomizingExistingClasses/CustomizingExistingClasses.html#//apple_ref/doc/uid/TP40011210-CH6-SW3)
+Extension 很常见的用法，是用来给类添加**私有**的变量和方法，用于在类的内部使用。例如在 interface 中定义为 `readonly` 类型的属性，在实现中添加 extension，将其重新定义为 `readwrite`，这样我们在类的内部就可以直接修改它的值，然而外部依然不能调用 `setter` 方法来修改。示例代码如下（来自苹果官方[文档](https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ProgrammingWithObjectiveC/CustomizingExistingClasses/CustomizingExistingClasses.html#//apple_ref/doc/uid/TP40011210-CH6-SW3)）:
 
-XYZPerson.h
+`XYZPerson.h`
 
 ```objectivec
 @interface XYZPerson : NSObject
@@ -257,7 +321,7 @@ XYZPerson.h
 @end
 ```
 
-XYZPerson.m
+`XYZPerson.m`
 
 ```objectivec
 @interface XYZPerson ()
@@ -269,6 +333,80 @@ XYZPerson.m
 @end
 ```
 
+#### 如何给已有的类添加属性
+
+首先强调一下上面例子中所展示的，Extension 可以给类添加属性，编译器会自动生成 getter，setter 和 ivar。 Category 并不支持这些。如果使用 Category 的话，类似下面这样：
+
+```objectivec
+@interface XYZPerson (UDID)
+@property (readwrite) NSString *uniqueIdentifier;
+@end
+
+@implementation XYZPerson (UDID)
+...
+@end
+```
+
+尽管编译可以通过，但是当真正使用 `uniqueIdentifier` 时直接会导致程序崩溃。
+
+如果我们手动去 synthesize 呢？像下面这样：
+
+```objectivec
+@implementation XYZPerson (UDID)
+@synthesize uniqueIdentifier;
+...
+@end
+```
+
+然而这样做的话，代码直接报编译错误了：
+
+`@synthesize not allowed in a category's implementation`
+
+看来这条路是彻底走不通了。
+
+不过我们还有别的方法，想通过 Category 添加属性的话，可以通过 Runtime 当中提供的 associated object 特性。NSHipster 的 [这篇文章](http://nshipster.cn/associated-objects/) 展示了具体的做法。
+
+#### 如何在类中添加全局变量
+
+有些时候我们需要在类中添加某个在类中全局可用的变量，为了避免污染作用域，一个比较好的做法是在 .m 文件中使用 static 变量：
+
+
+```objectivec
+static NSOperationQueue * _personOperationQueue = nil;
+
+@implementation XYZPerson
+...
+@end
+```
+
+由于 static 变量在编译期就是确定的，因此对于 NSObject 对象来说，初始化的值只能是 nil。如何进行类似 init 的初始化呢？可以通过重载 initialize 方法来做：
+
+```objectivec
+@implementation XYZPerson
+- (void)initialize {
+    if (!_personOperationQueue) {
+        _personOperationQueue = [[NSOperationQueue alloc] init];
+    }
+}
+@end
+```
+
+为什么这里要判断是否为 nil 呢？因为 `initialize` 方法可能会调用多次，后面会提到。
+
+如果是通过 Category 呢？当然也可以通过 initialize，不过除非必须的情况下，并不推荐在 Category 当中进行重载。
+
+下面介绍一个有点黑魔法的方法，除了 initilize 之外，我们还可以通过编译器的 `__attribute__` 特性来实现初始化：
+
+```objectivec
+__attribute__((constructor))
+static void initialize_Queue() {
+    _personOperationQueue = [[NSOperationQueue alloc] init];
+}
+
+@implementation XYZPerson (Operation)
+
+@end
+```
 
 ## 类的导入
 
@@ -288,7 +426,7 @@ Objective-C 是建立在 Runtime 基础上的语言，类也不例外。OC 中�
 
 +load 方法是当类或分类被添加到 Objective-C runtime 时被调用的，实现这个方法可以让我们在类加载的时候执行一些类相关的行为。子类的 +load 方法会在它的所有父类的 +load 方法之后执行，而分类的 +load 方法会在它的主类的 +load 方法之后执行。但是不同的类之间的 +load 方法的调用顺序是不确定的。
 
-load 方法不会被类自动继承, 每一个类中的 load 方法都不需要像 viewDidLoad 方法一样调用父类的方法。子类、父类和分类中的 +load 方法的实现是被区别对待的。也就是说如果子类没有实现 +load 方法，那么当它被加载时 runtime 是不会去调用父类的 +load 方法的。同理，当一个类和它的分类都实现了 +load 方法时，两个方法都会被调用。因此，我们常常可以利用这个特性做一些“邪恶”的事情，比如说方法混淆（Method Swizzling）。
+load 方法不会被类自动继承, 每一个类中的 load 方法都不需要像 viewDidLoad 方法一样调用父类的方法。子类、父类和分类中的 +load 方法的实现是被区别对待的。也就是说如果子类没有实现 +load 方法，那么当它被加载时 runtime 是不会去调用父类的 +load 方法的<sup id="fnref:ref"><a href="#fn:ref" class="footnote">1</a></sup>。同理，当一个类和它的分类都实现了 +load 方法时，两个方法都会被调用。因此，我们常常可以利用这个特性做一些“邪恶”的事情，比如说方法混淆（Method Swizzling）。FDTemplateLayoutCell 中就使用了这个方法，见[这里](https://github.com/forkingdog/UITableView-FDTemplateLayoutCell/blob/2bead7b80e40e8689201e7c1d6f034e952c9a155/Classes/UITableView%2BFDIndexPathHeightCache.m#L147)。
 
 #### +initialize
 
@@ -296,6 +434,10 @@ load 方法不会被类自动继承, 每一个类中的 load 方法都不需要�
 
 +initialize 方法的调用与普通方法的调用是一样的，走的都是发送消息的流程。换言之，如果子类没有实现 +initialize 方法，那么继承自父类的实现会被调用；如果一个类的分类实现了 +initialize 方法，那么就会对这个类中的实现造成覆盖。
 
+### 注解
+
+<li id="fn:ref">
+<p> 1.举一个例子：有一个 Father 类，实现了 load 方法，打印类名，一个 Son 类继承自前者，没有实现 load 方法。实例出一个 Son 的对象时，结果是会输出父类的名字。但这个例子与之前的结论并不矛盾，这里说的是父类先被加载了，所以调用了父类的 load 方法，而子类被加载时没有调用父类的 load 方法。 暂时没找到例子可以严格的证明此前的结论，所以还是去看源码吧。<a href="#fnref:ref" class="reversefootnote">&#8617;</a></p>
 
 ### 参考资料
 
@@ -307,4 +449,7 @@ load 方法不会被类自动继承, 每一个类中的 load 方法都不需要�
 * [Objective-C——消息，Category 与 Protocol](http://www.cnblogs.com/chijianqiang/archive/2012/06/22/objc-category-protocol.html)
 * [深入理解Objective-C中的@class](http://www.cnblogs.com/martin1009/archive/2012/06/24/2560218.html)
 * [Objective-C +load vs +initialize](http://blog.leichunfeng.com/blog/2015/05/02/objective-c-plus-load-vs-plus-initialize/)
+* [深入理解Objective-C：Category](http://tech.meituan.com/DiveIntoCategory.html)
 * https://stackoverflow.com/questions/19784454/when-should-i-use-synthesize-explicitly
+* http://www.fantageek.com/blog/2014/07/13/property-in-protocol/
+* http://www.friday.com/bbum/2009/09/06/iniailize-can-be-executed-multiple-times-load-not-so-much/
